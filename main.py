@@ -1,7 +1,7 @@
 import pygame
 import sys
 from settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
-from terrain import generate_heightmap, render_terrain
+from terrain import generate_heightmap, render_terrain, compute_gradient
 from infantry import Infantry
 
 
@@ -12,6 +12,7 @@ def main():
     clock = pygame.time.Clock()
 
     heightmap = generate_heightmap()
+    gx, gy = compute_gradient(heightmap)
 
     terrain_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
     render_terrain(heightmap, terrain_surface)
@@ -19,6 +20,8 @@ def main():
     units = [
         Infantry(center_x=600, center_y=400, cols=20, rows=5),
     ]
+    for unit in units:
+        unit.set_gradient(gx, gy)
     selected_unit = None
 
     font = pygame.font.SysFont("monospace", 13)
@@ -68,6 +71,12 @@ def main():
         for i, line in enumerate(hints):
             surf = font.render(line, True, (220, 220, 220))
             screen.blit(surf, (10, 10 + i * 16))
+
+        if selected_unit and selected_unit.target is not None:
+            from settings import MOVE_SPEED
+            pct = int(selected_unit.current_speed / MOVE_SPEED * 100)
+            speed_surf = font.render(f"Speed: {pct}%", True, (255, 220, 80))
+            screen.blit(speed_surf, (10, 10 + len(hints) * 16 + 6))
 
         pygame.display.flip()
 

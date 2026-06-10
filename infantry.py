@@ -3,7 +3,9 @@ import numpy as np
 from settings import (
     INFANTRY_COLOR, SELECTED_COLOR,
     SOLDIER_SPACING, SOLDIER_RADIUS, MOVE_SPEED,
+    SLOPE_PENALTY, MIN_SPEED_FRAC,
 )
+from terrain import directional_slope
 
 
 class Infantry:
@@ -16,8 +18,15 @@ class Infantry:
         self.target = None          # destination center
         self.facing = 0.0           # radians, 0 = right
         self.selected = False
+        self.current_speed = MOVE_SPEED  # updated each frame, exposed for HUD
+
+        self._gx = None  # gradient arrays injected after terrain is ready
+        self._gy = None
 
         self.soldiers = self._build_formation(self.center)
+
+    def set_gradient(self, gx, gy):
+        self._gx, self._gy = gx, gy
 
     # ------------------------------------------------------------------
     # Formation
@@ -58,11 +67,33 @@ class Infantry:
             self.soldiers = self._build_formation(self.center)
             return
 
-        step = min(MOVE_SPEED * dt, dist)
         direction = delta / dist
         self.facing = float(np.arctan2(direction[1], direction[0]))
+
+        speed = self._effective_speed(direction)
+        self.current_speed = speed
+        step = min(speed * dt, dist)
         self.center += direction * step
         self.soldiers = self._build_formation(self.center)
+
+    def _effective_speed(self, direction):
+        """Unit speed = base speed penalised by the steepest uphill slope among all soldiers.
+
+        Downhill is treated as flat (no speed bonus). Unit is only as fast as
+        its slowest man.
+        """
+        if self._gx is None:
+            return MOVE_SPEED
+
+        dx, dy = float(direction[0]), float(direction[1])
+        worst_slope = 0.0
+        for pos in self.soldiers:
+            slope = directional_slope(self._gx, self._gy, pos[0], pos[1], dx, dy)
+            # Only uphill slope penalises; clamp downhill to 0
+            worst_slope = max(worst_slope, slope)
+
+        fraction = max(MIN_SPEED_FRAC, 1.0 - SLOPE_PENALTY * worst_slope)
+        return MOVE_SPEED * fraction
 
     # ------------------------------------------------------------------
     # Draw

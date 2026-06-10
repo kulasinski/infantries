@@ -40,12 +40,58 @@ def height_at(heightmap, x, y):
     return float(heightmap[yi, xi])
 
 
+def compute_gradient(heightmap):
+    """Return (gx, gy) arrays — gradient in x and y directions, same shape as heightmap.
+
+    Values are in heightmap-units per pixel. Computed once at startup and
+    reused each frame to avoid per-frame numpy diffs.
+    """
+    gy, gx = np.gradient(heightmap.astype(np.float32))
+    return gx, gy
+
+
+def directional_slope(gx, gy, x, y, dx, dy):
+    """Slope in the travel direction (dx, dy) at map position (x, y).
+
+    Positive = uphill, negative = downhill. Normalised by travel direction
+    so a unit moving diagonally across a hill gets the right component.
+    """
+    xi = int(np.clip(x, 0, MAP_WIDTH - 1))
+    yi = int(np.clip(y, 0, MAP_HEIGHT - 1))
+    return float(gx[yi, xi] * dx + gy[yi, xi] * dy)
+
+
 def render_terrain(heightmap, surface):
-    # Shade each pixel by elevation: flat=dark green, elevated=lighter
-    r = (50 + (heightmap * 40)).astype(np.uint8)
-    g = (85 + (heightmap * 50)).astype(np.uint8)
-    b = (30 + (heightmap * 20)).astype(np.uint8)
-    rgb = np.stack([r, g, b], axis=2)
+    # Elevation bands: lowland → plains → hills → highland → rock → snow peak
+    # Each band is a pair (threshold, (r, g, b)); linearly interpolate within each band.
+    BANDS = [
+        (0.10, ( 45,  80,  30)),   # lowland dark green
+        (0.30, ( 70, 115,  40)),   # plains mid green
+        (0.50, ( 95, 130,  50)),   # foothills
+        (0.68, (130, 120,  65)),   # hills / brown-green
+        (0.82, (120,  90,  55)),   # highland brown
+        (0.92, (110,  95,  80)),   # rocky grey-brown
+        (1.00, (230, 230, 230)),   # snow peak
+    ]
+
+    h = heightmap  # shape (H, W), float32 in [0, 1]
+    r = np.zeros_like(h)
+    g = np.zeros_like(h)
+    b = np.zeros_like(h)
+
+    prev_t = 0.0
+    prev_c = BANDS[0][1]
+    for threshold, color in BANDS:
+        mask = (h >= prev_t) & (h <= threshold)
+        if mask.any() and threshold > prev_t:
+            t = (h[mask] - prev_t) / (threshold - prev_t)
+            r[mask] = prev_c[0] + t * (color[0] - prev_c[0])
+            g[mask] = prev_c[1] + t * (color[1] - prev_c[1])
+            b[mask] = prev_c[2] + t * (color[2] - prev_c[2])
+        prev_t = threshold
+        prev_c = color
+
+    rgb = np.stack([r, g, b], axis=2).astype(np.uint8)
     pygame.surfarray.blit_array(surface, rgb.transpose(1, 0, 2))
 
     for level in range(1, ISOHYPSE_LEVELS + 1):
