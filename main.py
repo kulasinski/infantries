@@ -1,9 +1,10 @@
 import pygame
 import sys
-from settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
+from settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, MAP_WIDTH, MAP_HEIGHT
 from terrain import generate_heightmap, render_terrain, compute_gradient
 from infantry import Infantry
 from units import Company, CommandContext
+from camera import Camera
 
 
 def main():
@@ -15,7 +16,8 @@ def main():
     heightmap = generate_heightmap()
     gx, gy = compute_gradient(heightmap)
 
-    terrain_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+    # Create terrain surface that covers the whole map
+    terrain_surface = pygame.Surface((MAP_WIDTH, MAP_HEIGHT))
     render_terrain(heightmap, terrain_surface)
 
     # Create a single company with hierarchical structure
@@ -24,6 +26,9 @@ def main():
 
     # Command context for switching between levels
     command_context = CommandContext()
+
+    # Camera system - center on company position
+    camera = Camera(initial_center_x=600, initial_center_y=400)
 
     selected_unit = None
 
@@ -81,6 +86,12 @@ def main():
                         else:
                             selected_unit = None
 
+            if event.type == pygame.MOUSEWHEEL:
+                # Handle zoom with mouse wheel
+                mx, my = pygame.mouse.get_pos()
+                zoom_in = event.y > 0  # Scroll up = zoom in
+                camera.handle_zoom(mx, my, zoom_in)
+
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = event.pos
 
@@ -90,30 +101,52 @@ def main():
                     # Clear all selections first
                     company.clear_all_selections()
 
+                    # Convert mouse coordinates to world coordinates
+                    world_mx, world_my = camera.screen_to_world(mx, my)
+
                     # Select based on current command level
                     if command_context.current_level == "company":
-                        if company.contains_point(mx, my):
+                        if company.contains_point(world_mx, world_my):
                             company.set_selected(True)
                             selected_unit = company
                     elif command_context.current_level == "platoon":
                         for platoon in company.child_units:
-                            if platoon.contains_point(mx, my):
+                            if platoon.contains_point(world_mx, world_my):
                                 platoon.set_selected(True)
                                 selected_unit = platoon
                                 break
 
                 if event.button == 3 and selected_unit:  # right click — move
-                    selected_unit.move_to(mx, my)
+                    world_mx, world_my = camera.screen_to_world(mx, my)
+                    selected_unit.move_to(world_mx, world_my)
 
         company.update(dt)
 
-        screen.blit(terrain_surface, (0, 0))
-        company.draw(screen)
+        # Clear screen
+        screen.fill((0, 0, 0))
+
+        # Draw terrain with camera transform
+        # Calculate where to draw the terrain surface on screen
+        terrain_screen_x, terrain_screen_y = camera.world_to_screen(0, 0)
+        scaled_width = int(MAP_WIDTH * camera.zoom)
+        scaled_height = int(MAP_HEIGHT * camera.zoom)
+
+        # Scale terrain surface and draw it
+        if camera.zoom != 1.0:
+            scaled_terrain = pygame.transform.scale(terrain_surface, (scaled_width, scaled_height))
+        else:
+            scaled_terrain = terrain_surface
+
+        screen.blit(scaled_terrain, (terrain_screen_x, terrain_screen_y))
+
+        # Draw units
+        company.draw(screen, camera)
 
         # HUD
         hints = [
             "Left-click: select unit",
             "Right-click: move selected unit",
+            "Mouse wheel: zoom in/out",
             "1: Platoon level, 2: Company level",
             "ESC: quit",
         ]
@@ -121,11 +154,28 @@ def main():
             surf = font.render(line, True, (220, 220, 220))
             screen.blit(surf, (10, 10 + i * 16))
 
+        # Unit legend
+        from soldier_types import get_unit_legend
+        legend = get_unit_legend()
+        legend_title = font.render("Units:", True, (180, 180, 180))
+        screen.blit(legend_title, (10, 10 + (len(hints) + 1) * 16))
+
+        for i, legend_item in enumerate(legend):
+            surf = font.render(legend_item, True, (160, 160, 160))
+            screen.blit(surf, (20, 10 + (len(hints) + 2 + i) * 16))
+
         # Command context display
         level_info = command_context.get_level_info()
+        zoom_info = camera.get_zoom_info()
         context_text = f"Command Level: {level_info['name']} ({level_info['size']} men) - {level_info['leadership']}"
+        zoom_text = f"Zoom: {zoom_info['zoom_percent']}%"
+
         context_surf = font.render(context_text, True, (100, 255, 100))
-        screen.blit(context_surf, (10, 10 + len(hints) * 16 + 10))
+        zoom_surf = font.render(zoom_text, True, (100, 200, 255))
+
+        context_y = 10 + (len(hints) + 1 + len(legend) + 1) * 16 + 10
+        screen.blit(context_surf, (10, context_y))
+        screen.blit(zoom_surf, (10, context_y + 16))
 
         # Speed display for selected unit (if applicable)
         if selected_unit and hasattr(selected_unit, 'child_units'):
@@ -145,7 +195,8 @@ def main():
                 from settings import MOVE_SPEED
                 pct = int(avg_speed / MOVE_SPEED * 100)
                 speed_surf = font.render(f"Formation Speed: {pct}%", True, (255, 220, 80))
-                screen.blit(speed_surf, (10, 10 + (len(hints) + 1) * 16 + 20))
+                speed_y = context_y + 32  # Account for zoom text
+                screen.blit(speed_surf, (10, speed_y))
 
         pygame.display.flip()
 

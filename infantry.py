@@ -6,14 +6,16 @@ from settings import (
     SLOPE_PENALTY, MIN_SPEED_FRAC,
 )
 from terrain import directional_slope
+from soldier_types import draw_soldier_symbol, assign_soldier_types
 
 
 class Infantry:
     """A unit of soldiers that moves and forms up as a group."""
 
-    def __init__(self, center_x, center_y, cols=5, rows=3):
+    def __init__(self, center_x, center_y, cols=5, rows=3, unit_type='squad'):
         self.cols = cols
         self.rows = rows
+        self.unit_type = unit_type
         self.center = np.array([center_x, center_y], dtype=float)
         self.target = None          # destination center
         self.facing = 0.0           # radians, 0 = right
@@ -24,6 +26,10 @@ class Infantry:
         self._gy = None
 
         self.soldiers = self._build_formation(self.center)
+
+        # Assign soldier types based on unit composition
+        total_soldiers = len(self.soldiers)
+        self.soldier_types = assign_soldier_types(unit_type, total_soldiers)
 
     def set_gradient(self, gx, gy):
         self._gx, self._gy = gx, gy
@@ -99,19 +105,39 @@ class Infantry:
     # Draw
     # ------------------------------------------------------------------
 
-    def draw(self, surface):
-        color = SELECTED_COLOR if self.selected else INFANTRY_COLOR
-        for pos in self.soldiers:
-            pygame.draw.circle(surface, color, (int(pos[0]), int(pos[1])), SOLDIER_RADIUS)
+    def draw(self, surface, camera=None):
+        # Draw each soldier with their specific symbol
+        for i, pos in enumerate(self.soldiers):
+            soldier_type = self.soldier_types[i] if i < len(self.soldier_types) else 'rifleman'
 
+            # Override color for selected units
+            if self.selected:
+                # Use gold/yellow for selected units regardless of type
+                original_color = None
+                from soldier_types import SOLDIER_TYPES
+                if soldier_type in SOLDIER_TYPES:
+                    original_color = SOLDIER_TYPES[soldier_type]['color']
+                    SOLDIER_TYPES[soldier_type]['color'] = SELECTED_COLOR
+
+            draw_soldier_symbol(surface, pos[0], pos[1], soldier_type, SOLDIER_RADIUS, camera)
+
+            # Restore original color
+            if self.selected and original_color:
+                SOLDIER_TYPES[soldier_type]['color'] = original_color
+
+        # Draw movement target if exists
         if self.target is not None:
-            pygame.draw.line(
-                surface, (255, 255, 100),
-                (int(self.center[0]), int(self.center[1])),
-                (int(self.target[0]), int(self.target[1])),
-                1,
-            )
-            pygame.draw.circle(surface, (255, 255, 100), (int(self.target[0]), int(self.target[1])), 4, 1)
+            if camera:
+                center_screen = camera.world_to_screen(self.center[0], self.center[1])
+                target_screen = camera.world_to_screen(self.target[0], self.target[1])
+                target_radius = camera.get_scaled_radius(4)
+            else:
+                center_screen = (int(self.center[0]), int(self.center[1]))
+                target_screen = (int(self.target[0]), int(self.target[1]))
+                target_radius = 4
+
+            pygame.draw.line(surface, (255, 255, 100), center_screen, target_screen, 1)
+            pygame.draw.circle(surface, (255, 255, 100), target_screen, target_radius, 1)
 
     # ------------------------------------------------------------------
     # Selection hit-test

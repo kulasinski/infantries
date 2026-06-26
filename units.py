@@ -82,8 +82,8 @@ class Squad(MilitaryUnit):
         super().__init__("squad", center_x, center_y, unit_id)
 
         # Create Infantry visual representation
-        # Squad is 2x5 formation (10 soldiers)
-        self.infantry = Infantry(center_x, center_y, cols=5, rows=2)
+        # Squad is 2x5 formation (10 soldiers) with proper composition
+        self.infantry = Infantry(center_x, center_y, cols=5, rows=2, unit_type='squad')
         self.visual_units = [self.infantry]
 
     def update(self, dt):
@@ -92,34 +92,49 @@ class Squad(MilitaryUnit):
         # Update center position from infantry
         self.center = self.infantry.center.copy()
 
-    def draw(self, surface):
+    def draw(self, surface, camera=None):
         # Override infantry colors if parent is selected
         if self.parent_selected and self.sub_unit_index >= 0:
             # Draw with specific sub-unit color
             from settings import SUB_UNIT_COLORS
             color = SUB_UNIT_COLORS[self.sub_unit_index % len(SUB_UNIT_COLORS)]
-            self._draw_infantry_with_color(surface, color)
+            self._draw_infantry_with_color(surface, color, camera)
         else:
-            self.infantry.draw(surface)
+            self.infantry.draw(surface, camera)
 
-    def _draw_infantry_with_color(self, surface, color):
-        """Draw infantry with custom color"""
+    def _draw_infantry_with_color(self, surface, color, camera=None):
+        """Draw infantry with custom color override"""
         import pygame
         from settings import SOLDIER_RADIUS
+        from soldier_types import draw_soldier_symbol
 
-        for pos in self.infantry.soldiers:
-            pygame.draw.circle(surface, color, (int(pos[0]), int(pos[1])), SOLDIER_RADIUS)
+        # Draw each soldier with custom color but keep their symbols
+        for i, pos in enumerate(self.infantry.soldiers):
+            soldier_type = self.infantry.soldier_types[i] if i < len(self.infantry.soldier_types) else 'rifleman'
+
+            # Temporarily override the soldier type color
+            from soldier_types import SOLDIER_TYPES
+            original_color = SOLDIER_TYPES[soldier_type]['color']
+            SOLDIER_TYPES[soldier_type]['color'] = color
+
+            draw_soldier_symbol(surface, pos[0], pos[1], soldier_type, SOLDIER_RADIUS, camera)
+
+            # Restore original color
+            SOLDIER_TYPES[soldier_type]['color'] = original_color
 
         # Draw movement target if exists
         if self.infantry.target is not None:
-            pygame.draw.line(
-                surface, (255, 255, 100),
-                (int(self.infantry.center[0]), int(self.infantry.center[1])),
-                (int(self.infantry.target[0]), int(self.infantry.target[1])),
-                1,
-            )
-            pygame.draw.circle(surface, (255, 255, 100),
-                             (int(self.infantry.target[0]), int(self.infantry.target[1])), 4, 1)
+            if camera:
+                center_screen = camera.world_to_screen(self.infantry.center[0], self.infantry.center[1])
+                target_screen = camera.world_to_screen(self.infantry.target[0], self.infantry.target[1])
+                target_radius = camera.get_scaled_radius(4)
+            else:
+                center_screen = (int(self.infantry.center[0]), int(self.infantry.center[1]))
+                target_screen = (int(self.infantry.target[0]), int(self.infantry.target[1]))
+                target_radius = 4
+
+            pygame.draw.line(surface, (255, 255, 100), center_screen, target_screen, 1)
+            pygame.draw.circle(surface, (255, 255, 100), target_screen, target_radius, 1)
 
     def move_to(self, x, y):
         """Squads can only move if no parent or if parent allows it"""
@@ -166,37 +181,54 @@ class Platoon(MilitaryUnit):
             positions = [squad.center for squad in self.child_units]
             self.center = np.mean(positions, axis=0)
 
-    def draw(self, surface):
+    def draw(self, surface, camera=None):
         """Draw all squads and platoon indicator if selected"""
         for squad in self.child_units:
-            squad.draw(surface)
+            squad.draw(surface, camera)
 
         # Draw platoon boundary if selected or parent is selected
-        if self.selected:
-            # Calculate bounding box of all squads with proper margins
-            positions = [squad.center for squad in self.child_units]
-            min_x = min(pos[0] for pos in positions) - 30  # Half squad width + margin
-            max_x = max(pos[0] for pos in positions) + 30
-            min_y = min(pos[1] for pos in positions) - 20
-            max_y = max(pos[1] for pos in positions) + 20
+        if self.selected or (self.parent_selected and self.sub_unit_index >= 0):
+            # Get all soldier positions from all squads in this platoon
+            all_soldier_positions = []
+            for squad in self.child_units:
+                all_soldier_positions.extend(squad.infantry.soldiers)
 
-            pygame.draw.rect(surface, (100, 255, 100),
+            if all_soldier_positions and camera:
+                # Transform all soldier positions to screen coordinates
+                screen_positions = [camera.world_to_screen(pos[0], pos[1]) for pos in all_soldier_positions]
+
+                # Find min/max screen coordinates
+                screen_xs = [pos[0] for pos in screen_positions]
+                screen_ys = [pos[1] for pos in screen_positions]
+
+                min_x = min(screen_xs) - 10  # Simple pixel margin
+                max_x = max(screen_xs) + 10
+                min_y = min(screen_ys) - 10
+                max_y = max(screen_ys) + 10
+
+            elif all_soldier_positions:
+                # Fallback without camera
+                world_xs = [pos[0] for pos in all_soldier_positions]
+                world_ys = [pos[1] for pos in all_soldier_positions]
+                min_x = min(world_xs) - 10
+                max_x = max(world_xs) + 10
+                min_y = min(world_ys) - 10
+                max_y = max(world_ys) + 10
+            else:
+                return  # No positions to draw
+
+            if self.selected:
+                color = (100, 255, 100)  # Green for direct selection
+                thickness = 2
+            else:
+                # Use sub-unit specific color when parent is selected
+                from settings import SUB_UNIT_COLORS
+                color = SUB_UNIT_COLORS[self.sub_unit_index % len(SUB_UNIT_COLORS)]
+                thickness = 2
+
+            pygame.draw.rect(surface, color,
                            (int(min_x), int(min_y),
-                            int(max_x - min_x), int(max_y - min_y)), 2)
-        elif self.parent_selected and self.sub_unit_index >= 0:
-            # Draw with specific sub-unit color when parent company is selected
-            from settings import SUB_UNIT_COLORS
-            color = SUB_UNIT_COLORS[self.sub_unit_index % len(SUB_UNIT_COLORS)]
-
-            positions = [squad.center for squad in self.child_units]
-            min_x = min(pos[0] for pos in positions) - 30
-            max_x = max(pos[0] for pos in positions) + 30
-            min_y = min(pos[1] for pos in positions) - 20
-            max_y = max(pos[1] for pos in positions) + 20
-
-            pygame.draw.rect(surface, color,  # Use sub-unit specific color
-                           (int(min_x), int(min_y),
-                            int(max_x - min_x), int(max_y - min_y)), 2)
+                            int(max_x - min_x), int(max_y - min_y)), thickness)
 
     def move_to(self, x, y):
         """Move entire platoon, maintaining formation"""
@@ -256,18 +288,42 @@ class Company(MilitaryUnit):
             positions = [platoon.center for platoon in self.child_units]
             self.center = np.mean(positions, axis=0)
 
-    def draw(self, surface):
+    def draw(self, surface, camera=None):
         """Draw all platoons and company indicator if selected"""
         for platoon in self.child_units:
-            platoon.draw(surface)
+            platoon.draw(surface, camera)
 
         # Draw company boundary if selected
         if self.selected:
-            positions = [platoon.center for platoon in self.child_units]
-            min_x = min(pos[0] for pos in positions) - 80  # Half platoon width + margin
-            max_x = max(pos[0] for pos in positions) + 80
-            min_y = min(pos[1] for pos in positions) - 40
-            max_y = max(pos[1] for pos in positions) + 40
+            # Get all soldier positions from all squads in all platoons
+            all_soldier_positions = []
+            for platoon in self.child_units:
+                for squad in platoon.child_units:
+                    all_soldier_positions.extend(squad.infantry.soldiers)
+
+            if all_soldier_positions and camera:
+                # Transform all soldier positions to screen coordinates
+                screen_positions = [camera.world_to_screen(pos[0], pos[1]) for pos in all_soldier_positions]
+
+                # Find min/max screen coordinates
+                screen_xs = [pos[0] for pos in screen_positions]
+                screen_ys = [pos[1] for pos in screen_positions]
+
+                min_x = min(screen_xs) - 15  # Slightly larger margin for company
+                max_x = max(screen_xs) + 15
+                min_y = min(screen_ys) - 15
+                max_y = max(screen_ys) + 15
+
+            elif all_soldier_positions:
+                # Fallback without camera
+                world_xs = [pos[0] for pos in all_soldier_positions]
+                world_ys = [pos[1] for pos in all_soldier_positions]
+                min_x = min(world_xs) - 15
+                max_x = max(world_xs) + 15
+                min_y = min(world_ys) - 15
+                max_y = max(world_ys) + 15
+            else:
+                return  # No positions to draw
 
             pygame.draw.rect(surface, (255, 100, 100),
                            (int(min_x), int(min_y),
