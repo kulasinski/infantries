@@ -158,11 +158,70 @@ formations:
 
   company:
     marching:
-      name: "Company Column Formation"
-      description: "Three platoons in triangular formation"
-      platoon_spacing:
-        front_to_rear: 40.0  # meters from front platoon to rear platoons
-        rear_separation: 67.0  # meters between rear platoons
+      name: "Company Approach March"
+      description: "Three rifle platoons in triangle, HQ and heavy weapons in rear"
+      rifle_platoons:
+        formation: "triangle"
+        positions:
+          - {"x": 0, "y": -40}      # Lead platoon
+          - {"x": -35, "y": 20}     # Left rear platoon
+          - {"x": 35, "y": 20}      # Right rear platoon
+      company_hq:
+        pattern: [["hq", "hq", "hq", "rifleman", "rifleman"]]
+        spacing: {"x": 3.0, "y": 3.0}
+        position: {"x": 0, "y": 50}  # Behind triangle
+      heavy_weapons_platoon:
+        elements:
+          mg_section:
+            pattern: [["mg", "rifleman", "mg", "rifleman"], ["hq", "rifleman", "rifleman", "rifleman"]]
+            position: {"x": -20, "y": 45}
+          mortar_section:
+            pattern: [["mortar", "rifleman", "mortar", "rifleman"], ["hq", "rifleman", "rifleman", "rifleman"]]
+            position: {"x": 20, "y": 45}
+
+    assault:
+      name: "Company Assault Formation"
+      description: "Line formation for maximum firepower"
+      rifle_platoons:
+        formation: "line"
+        positions:
+          - {"x": -60, "y": 0}      # Left platoon
+          - {"x": 0, "y": 0}        # Center platoon
+          - {"x": 60, "y": 0}       # Right platoon
+      company_hq:
+        pattern: [["hq", "hq", "hq", "rifleman", "rifleman"]]
+        spacing: {"x": 3.0, "y": 3.0}
+        position: {"x": 0, "y": 40}  # Behind line
+      heavy_weapons_platoon:
+        elements:
+          mg_section:
+            pattern: [["mg", "rifleman", "mg", "rifleman"], ["hq", "rifleman", "rifleman", "rifleman"]]
+            position: {"x": -30, "y": 35}  # Support from flanks
+          mortar_section:
+            pattern: [["mortar", "rifleman", "mortar", "rifleman"], ["hq", "rifleman", "rifleman", "rifleman"]]
+            position: {"x": 30, "y": 60}   # Further back for indirect fire
+
+    defense:
+      name: "Company Defensive Position"
+      description: "Distributed defense with interlocking fields of fire"
+      rifle_platoons:
+        formation: "distributed"
+        positions:
+          - {"x": -50, "y": -10}    # Left strongpoint
+          - {"x": 50, "y": -10}     # Right strongpoint
+          - {"x": 0, "y": 30}       # Reserve position
+      company_hq:
+        pattern: [["hq", "hq", "hq", "rifleman", "rifleman"]]
+        spacing: {"x": 3.0, "y": 3.0}
+        position: {"x": 0, "y": 45}  # Command post
+      heavy_weapons_platoon:
+        elements:
+          mg_section:
+            pattern: [["mg", "rifleman", "mg", "rifleman"], ["hq", "rifleman", "rifleman", "rifleman"]]
+            position: {"x": 0, "y": 15}   # Central fire support
+          mortar_section:
+            pattern: [["mortar", "rifleman", "mortar", "rifleman"], ["hq", "rifleman", "rifleman", "rifleman"]]
+            position: {"x": 0, "y": 60}   # Rear area fires
 
 # Gameplay Mechanics
 autonomous_behavior:

@@ -153,6 +153,18 @@ def get_formation_layout(unit_type, formation_name="marching"):
             }
         }
 
+    # Handle company HQ element specially
+    if unit_type == "company" and "company_hq" in formation:
+        company_hq = formation["company_hq"]
+        return {
+            "pattern": company_hq["pattern"],
+            "spacing": company_hq["spacing"],
+            "dimensions": {
+                "cols": len(company_hq["pattern"][0]),
+                "rows": len(company_hq["pattern"])
+            }
+        }
+
     # Provide defaults if missing
     default_layout = {
         "pattern": [["rifleman", "rifleman", "mg", "rifleman", "rifleman"],

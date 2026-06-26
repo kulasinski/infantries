@@ -387,55 +387,216 @@ class Platoon(MilitaryUnit):
             unit.set_gradient(gx, gy)
 
 
-class Company(MilitaryUnit):
-    """Company level - 3 platoons + heavy weapons, controllable"""
+class CompanyHQ(MilitaryUnit):
+    """Company headquarters element - Captain, staff, communications"""
 
     def __init__(self, center_x, center_y, unit_id=None):
         super().__init__("company", center_x, center_y, unit_id)
 
-        # Create 3 platoons in proper triangular formation
-        # Each platoon spans 3 squads: width = 2*20 + 12 = 52px (updated for new spacing)
-        platoon_width = 52
-        platoon_spacing = platoon_width + 15  # Platoon width + 15px gap = 67px
-        vertical_offset = 40  # Vertical spacing for triangle
+        # Create company HQ element using formation from YAML
+        self.infantry = Infantry(center_x, center_y, unit_type='company', formation_name='marching')
+        # Override soldier types for Company HQ (Captain, XO, 1st Sgt, etc.)
+        self.infantry.soldier_types = ['hq', 'hq', 'hq', 'rifleman', 'rifleman']
+        self.visual_units = [self.infantry]
 
-        positions = [
-            (center_x, center_y - vertical_offset),           # Front platoon
-            (center_x - platoon_spacing//2, center_y + vertical_offset//2),  # Left rear
-            (center_x + platoon_spacing//2, center_y + vertical_offset//2)   # Right rear
-        ]
+    def update(self, dt):
+        self.infantry.update(dt)
+        self.center = self.infantry.center.copy()
+
+    def draw(self, surface, camera=None):
+        if self.parent_selected and self.sub_unit_index >= 0:
+            from settings import SUB_UNIT_COLORS
+            color = SUB_UNIT_COLORS[self.sub_unit_index % len(SUB_UNIT_COLORS)]
+            self._draw_infantry_with_color(surface, color, camera)
+        else:
+            self.infantry.draw(surface, camera)
+
+    def _draw_infantry_with_color(self, surface, color, camera=None):
+        from settings import SOLDIER_RADIUS
+        from soldier_types import draw_soldier_symbol
+        for i, pos in enumerate(self.infantry.soldiers):
+            soldier_type = self.infantry.soldier_types[i] if i < len(self.infantry.soldier_types) else 'rifleman'
+            draw_soldier_symbol(surface, pos[0], pos[1], soldier_type, SOLDIER_RADIUS, camera)
+
+    def move_to(self, x, y):
+        if self.controllable:
+            self.infantry.move_to(x, y)
+
+    def contains_point(self, x, y):
+        return self.infantry.contains_point(x, y)
+
+    def set_gradient(self, gx, gy):
+        self.infantry.set_gradient(gx, gy)
+
+
+class HeavyWeaponsSection(MilitaryUnit):
+    """Heavy weapons section - machine guns or mortars"""
+
+    def __init__(self, center_x, center_y, unit_id=None, section_type="mg"):
+        super().__init__("company", center_x, center_y, unit_id)
+        self.section_type = section_type
+
+        # Create appropriate formation based on section type
+        if section_type == "mg":
+            # Heavy machine gun section: 2 MG teams + section leader
+            pattern = [["mg", "rifleman", "mg", "rifleman"],
+                      ["hq", "rifleman", "rifleman", "rifleman"]]
+        else:  # mortar section
+            # 81mm mortar section: 2 mortar teams + section leader
+            pattern = [["mortar", "rifleman", "mortar", "rifleman"],
+                      ["hq", "rifleman", "rifleman", "rifleman"]]
+
+        # Create custom infantry formation
+        self.infantry = Infantry(center_x, center_y, cols=4, rows=2, unit_type='company')
+        self.infantry.soldier_types = [soldier for row in pattern for soldier in row]
+        self.visual_units = [self.infantry]
+
+    def update(self, dt):
+        self.infantry.update(dt)
+        self.center = self.infantry.center.copy()
+
+    def draw(self, surface, camera=None):
+        if self.parent_selected and self.sub_unit_index >= 0:
+            from settings import SUB_UNIT_COLORS
+            color = SUB_UNIT_COLORS[self.sub_unit_index % len(SUB_UNIT_COLORS)]
+            self._draw_infantry_with_color(surface, color, camera)
+        else:
+            self.infantry.draw(surface, camera)
+
+    def _draw_infantry_with_color(self, surface, color, camera=None):
+        from settings import SOLDIER_RADIUS
+        from soldier_types import draw_soldier_symbol
+        for i, pos in enumerate(self.infantry.soldiers):
+            soldier_type = self.infantry.soldier_types[i] if i < len(self.infantry.soldier_types) else 'rifleman'
+            draw_soldier_symbol(surface, pos[0], pos[1], soldier_type, SOLDIER_RADIUS, camera)
+
+    def move_to(self, x, y):
+        if self.controllable:
+            self.infantry.move_to(x, y)
+
+    def contains_point(self, x, y):
+        return self.infantry.contains_point(x, y)
+
+    def set_gradient(self, gx, gy):
+        self.infantry.set_gradient(gx, gy)
+
+
+class Company(MilitaryUnit):
+    """Company level - 3 platoons + heavy weapons, controllable"""
+
+    def __init__(self, center_x, center_y, unit_id=None, formation_name='marching'):
+        super().__init__("company", center_x, center_y, unit_id)
+        self.formation_name = formation_name
+
+        # Load formation configuration
+        import yaml
+        try:
+            with open("settings.yaml", "r") as f:
+                config = yaml.safe_load(f)
+            formation_config = config["formations"]["company"][formation_name]
+        except:
+            # Fallback to simple triangle formation
+            formation_config = {
+                "rifle_platoons": {
+                    "positions": [
+                        {"x": 0, "y": -40},
+                        {"x": -35, "y": 20},
+                        {"x": 35, "y": 20}
+                    ]
+                },
+                "company_hq": {"position": {"x": 0, "y": 50}},
+                "heavy_weapons_platoon": {
+                    "elements": {
+                        "mg_section": {"position": {"x": -20, "y": 45}},
+                        "mortar_section": {"position": {"x": 20, "y": 45}}
+                    }
+                }
+            }
+
+        # Create 3 rifle platoons
+        rifle_config = formation_config["rifle_platoons"]
+        positions = [(center_x + pos["x"], center_y + pos["y"])
+                    for pos in rifle_config["positions"]]
 
         for i, (px, py) in enumerate(positions):
-            platoon_id = f"{self.unit_id}_platoon_{i+1}"
-            platoon = Platoon(px, py, platoon_id)
+            platoon_id = f"{self.unit_id}_rifle_platoon_{i+1}"
+            # Use appropriate platoon formation based on company formation
+            platoon_formation = 'wedge' if formation_name == 'assault' else 'marching'
+            platoon = Platoon(px, py, platoon_id, platoon_formation)
             platoon.parent_unit = self
             platoon.unit_number = i + 1
-            platoon.unit_name = f"Platoon {i + 1}"
+            platoon.unit_name = f"Rifle Platoon {i + 1}"
             self.child_units.append(platoon)
             self.visual_units.append(platoon)
 
-    def update(self, dt):
-        """Update all platoons in the company"""
-        for platoon in self.child_units:
-            platoon.update(dt)
+        # Create Company HQ
+        hq_config = formation_config["company_hq"]
+        hq_pos = hq_config["position"]
+        hq_x = center_x + hq_pos["x"]
+        hq_y = center_y + hq_pos["y"]
 
-        # Update company center
+        company_hq_id = f"{self.unit_id}_hq"
+        self.company_hq = CompanyHQ(hq_x, hq_y, company_hq_id)
+        self.company_hq.parent_unit = self
+        self.company_hq.unit_name = "Company HQ"
+        self.child_units.append(self.company_hq)
+        self.visual_units.append(self.company_hq)
+
+        # Create Heavy Weapons Platoon elements
+        hw_config = formation_config["heavy_weapons_platoon"]["elements"]
+
+        # Machine Gun Section (2 heavy MGs)
+        mg_pos = hw_config["mg_section"]["position"]
+        mg_x = center_x + mg_pos["x"]
+        mg_y = center_y + mg_pos["y"]
+
+        mg_section_id = f"{self.unit_id}_mg_section"
+        self.mg_section = HeavyWeaponsSection(mg_x, mg_y, mg_section_id, "mg")
+        self.mg_section.parent_unit = self
+        self.mg_section.unit_name = "Heavy MG Section"
+        self.child_units.append(self.mg_section)
+        self.visual_units.append(self.mg_section)
+
+        # Mortar Section (2 x 81mm mortars)
+        mortar_pos = hw_config["mortar_section"]["position"]
+        mortar_x = center_x + mortar_pos["x"]
+        mortar_y = center_y + mortar_pos["y"]
+
+        mortar_section_id = f"{self.unit_id}_mortar_section"
+        self.mortar_section = HeavyWeaponsSection(mortar_x, mortar_y, mortar_section_id, "mortar")
+        self.mortar_section.parent_unit = self
+        self.mortar_section.unit_name = "81mm Mortar Section"
+        self.child_units.append(self.mortar_section)
+        self.visual_units.append(self.mortar_section)
+
+    def update(self, dt):
+        """Update all elements in the company"""
+        for unit in self.child_units:
+            unit.update(dt)
+
+        # Update company center as average of all unit positions
         if self.child_units:
-            positions = [platoon.center for platoon in self.child_units]
+            positions = [unit.center for unit in self.child_units]
             self.center = np.mean(positions, axis=0)
 
     def draw(self, surface, camera=None):
-        """Draw all platoons and company indicator if selected"""
-        for platoon in self.child_units:
-            platoon.draw(surface, camera)
+        """Draw all elements and company indicator if selected"""
+        for unit in self.child_units:
+            unit.draw(surface, camera)
 
         # Draw company boundary if selected
         if self.selected:
-            # Get all soldier positions from all squads in all platoons
+            # Get all soldier positions from all units in company
             all_soldier_positions = []
-            for platoon in self.child_units:
-                for squad in platoon.child_units:
-                    all_soldier_positions.extend(squad.infantry.soldiers)
+            for unit in self.child_units:
+                if hasattr(unit, 'infantry') and hasattr(unit.infantry, 'soldiers'):
+                    # Direct infantry unit (HQ, Heavy Weapons)
+                    all_soldier_positions.extend(unit.infantry.soldiers)
+                elif hasattr(unit, 'child_units'):
+                    # Platoon with squads
+                    for child in unit.child_units:
+                        if hasattr(child, 'infantry') and hasattr(child.infantry, 'soldiers'):
+                            all_soldier_positions.extend(child.infantry.soldiers)
 
             if all_soldier_positions and camera:
                 # Transform all soldier positions to screen coordinates
@@ -491,19 +652,24 @@ class Company(MilitaryUnit):
         # Calculate offset from current center to target
         offset = np.array([x, y]) - self.center
 
-        # Move each platoon by the same offset
-        for platoon in self.child_units:
-            new_pos = platoon.center + offset
-            platoon.move_to(new_pos[0], new_pos[1])
+        # Move all units (platoons, HQ, heavy weapons) by the same offset
+        for unit in self.child_units:
+            new_pos = unit.center + offset
+            if hasattr(unit, 'infantry'):
+                # Direct infantry unit
+                unit.infantry.move_to(new_pos[0], new_pos[1])
+            else:
+                # Complex unit (platoon)
+                unit.move_to(new_pos[0], new_pos[1])
 
     def contains_point(self, x, y):
-        """Check if point is within any platoon"""
-        return any(platoon.contains_point(x, y) for platoon in self.child_units)
+        """Check if point is within any company element"""
+        return any(unit.contains_point(x, y) for unit in self.child_units)
 
     def set_gradient(self, gx, gy):
-        """Set terrain gradient for all platoons"""
-        for platoon in self.child_units:
-            platoon.set_gradient(gx, gy)
+        """Set terrain gradient for all company elements"""
+        for unit in self.child_units:
+            unit.set_gradient(gx, gy)
 
 
 class CommandContext:
