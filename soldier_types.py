@@ -141,6 +141,18 @@ def get_formation_layout(unit_type, formation_name="marching"):
     unit_formations = formations.get(unit_type, {})
     formation = unit_formations.get(formation_name, {})
 
+    # Handle platoon HQ element specially
+    if unit_type == "platoon" and "hq_element" in formation:
+        hq_element = formation["hq_element"]
+        return {
+            "pattern": hq_element["pattern"],
+            "spacing": hq_element["spacing"],
+            "dimensions": {
+                "cols": len(hq_element["pattern"][0]),
+                "rows": len(hq_element["pattern"])
+            }
+        }
+
     # Provide defaults if missing
     default_layout = {
         "pattern": [["rifleman", "rifleman", "mg", "rifleman", "rifleman"],

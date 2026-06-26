@@ -121,11 +121,40 @@ formations:
   platoon:
     marching:
       name: "Platoon Column Formation"
-      description: "Three squads in column with HQ element"
+      description: "Three squads in line with HQ element behind center"
       squad_spacing:
         x: 20.0  # meters between squads horizontally
         y: 0.0   # squads aligned horizontally
-      hq_position: "center_rear"  # where platoon HQ is positioned relative to squads
+      hq_element:
+        pattern: [["hq", "hq", "mortar", "rifleman", "rifleman"]]  # Lt, Sgt, Mortar team
+        spacing: {"x": 3.0, "y": 3.0}
+        position: "center_rear"  # behind center squad
+        offset: {"x": 0, "y": 15}  # 15m behind center squad
+
+    wedge:
+      name: "Platoon Wedge Formation"
+      description: "Tactical wedge for advancing under fire"
+      squad_positions:
+        - {"x": 0, "y": -20}      # Lead squad (point of wedge)
+        - {"x": -25, "y": 10}     # Left rear squad
+        - {"x": 25, "y": 10}      # Right rear squad
+      hq_element:
+        pattern: [["hq", "hq", "mortar", "rifleman", "rifleman"]]
+        spacing: {"x": 3.0, "y": 3.0}
+        position: "center"
+        offset: {"x": 0, "y": 0}  # Center of triangle
+
+    line:
+      name: "Platoon Line Formation"
+      description: "Extended line for maximum firepower"
+      squad_spacing:
+        x: 30.0  # wider spacing for line
+        y: 0.0
+      hq_element:
+        pattern: [["hq", "hq", "mortar", "rifleman", "rifleman"]]
+        spacing: {"x": 3.0, "y": 3.0}
+        position: "center_rear"
+        offset: {"x": 0, "y": 20}  # further back in line formation
 
   company:
     marching:

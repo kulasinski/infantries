@@ -162,22 +162,97 @@ class Squad(MilitaryUnit):
         self.infantry.set_gradient(gx, gy)
 
 
+class PlatoonHQ(MilitaryUnit):
+    """Platoon headquarters element - Lieutenant, Sergeant, mortar team"""
+
+    def __init__(self, center_x, center_y, unit_id=None):
+        super().__init__("platoon", center_x, center_y, unit_id)  # Uses platoon config
+
+        # Create platoon HQ element using formation from YAML
+        self.infantry = Infantry(center_x, center_y, unit_type='platoon', formation_name='marching')
+        # Override soldier types for HQ element
+        self.infantry.soldier_types = ['hq', 'hq', 'mortar', 'rifleman', 'rifleman']
+        self.visual_units = [self.infantry]
+
+    def update(self, dt):
+        """Update HQ element"""
+        self.infantry.update(dt)
+        self.center = self.infantry.center.copy()
+
+    def draw(self, surface, camera=None):
+        """Draw HQ element with special highlighting if parent selected"""
+        if self.parent_selected and self.sub_unit_index >= 0:
+            # Draw with specific sub-unit color
+            from settings import SUB_UNIT_COLORS
+            color = SUB_UNIT_COLORS[self.sub_unit_index % len(SUB_UNIT_COLORS)]
+            self._draw_infantry_with_color(surface, color, camera)
+        else:
+            self.infantry.draw(surface, camera)
+
+    def _draw_infantry_with_color(self, surface, color, camera=None):
+        """Draw HQ infantry with custom color override"""
+        import pygame
+        from settings import SOLDIER_RADIUS
+        from soldier_types import draw_soldier_symbol, SOLDIER_TYPES
+
+        # Draw each soldier with custom color but keep their symbols
+        for i, pos in enumerate(self.infantry.soldiers):
+            soldier_type = self.infantry.soldier_types[i] if i < len(self.infantry.soldier_types) else 'rifleman'
+
+            # For HQ element, we'll just draw in black as specified
+            draw_soldier_symbol(surface, pos[0], pos[1], soldier_type, SOLDIER_RADIUS, camera)
+
+    def move_to(self, x, y):
+        """HQ element can move if controllable"""
+        if self.controllable:
+            self.infantry.move_to(x, y)
+
+    def contains_point(self, x, y):
+        return self.infantry.contains_point(x, y)
+
+    def set_gradient(self, gx, gy):
+        self.infantry.set_gradient(gx, gy)
+
+
 class Platoon(MilitaryUnit):
     """Platoon level - 3 squads + HQ, controllable"""
 
-    def __init__(self, center_x, center_y, unit_id=None):
+    def __init__(self, center_x, center_y, unit_id=None, formation_name='marching'):
         super().__init__("platoon", center_x, center_y, unit_id)
+        self.formation_name = formation_name
 
-        # Create 3 squads in proper line formation
-        # Each squad width = (cols-1) * x_spacing = (5-1) * 3 = 12m
-        squad_width = 12
-        squad_spacing = squad_width + 8  # Squad width + 8m gap = 20m
-        positions = [
-            (center_x - squad_spacing, center_y),     # Left squad
-            (center_x, center_y),                     # Center squad (HQ)
-            (center_x + squad_spacing, center_y)      # Right squad
-        ]
+        # Load formation configuration
+        import yaml
+        try:
+            with open("settings.yaml", "r") as f:
+                config = yaml.safe_load(f)
+            formation_config = config["formations"]["platoon"][formation_name]
+        except:
+            # Fallback to default line formation
+            formation_config = {
+                "squad_spacing": {"x": 20.0, "y": 0.0},
+                "hq_element": {
+                    "position": "center_rear",
+                    "offset": {"x": 0, "y": 15}
+                }
+            }
 
+        # Create 3 rifle squads
+        if "squad_positions" in formation_config:
+            # Use explicit positions (e.g., wedge formation)
+            positions = [(center_x + pos["x"], center_y + pos["y"])
+                        for pos in formation_config["squad_positions"]]
+        else:
+            # Use spacing-based positions (e.g., line formation)
+            spacing = formation_config["squad_spacing"]
+            squad_spacing_x = spacing["x"]
+            positions = [
+                (center_x - squad_spacing_x, center_y),     # Left squad
+                (center_x, center_y),                       # Center squad
+                (center_x + squad_spacing_x, center_y)      # Right squad
+            ]
+
+        # Create squads
         for i, (sx, sy) in enumerate(positions):
             squad_id = f"{self.unit_id}_squad_{i+1}"
             squad = Squad(sx, sy, squad_id)
@@ -187,27 +262,47 @@ class Platoon(MilitaryUnit):
             self.child_units.append(squad)
             self.visual_units.append(squad)
 
-    def update(self, dt):
-        """Update all squads in the platoon"""
-        for squad in self.child_units:
-            squad.update(dt)
+        # Create Platoon HQ element
+        hq_config = formation_config.get("hq_element", {})
+        hq_offset = hq_config.get("offset", {"x": 0, "y": 15})
+        hq_x = center_x + hq_offset["x"]
+        hq_y = center_y + hq_offset["y"]
 
-        # Update platoon center as average of squad positions
+        platoon_hq_id = f"{self.unit_id}_hq"
+        self.platoon_hq = PlatoonHQ(hq_x, hq_y, platoon_hq_id)
+        self.platoon_hq.parent_unit = self
+        self.platoon_hq.unit_name = "Platoon HQ"
+
+        # Add HQ to child units for selection and drawing
+        self.child_units.append(self.platoon_hq)
+        self.visual_units.append(self.platoon_hq)
+
+    def update(self, dt):
+        """Update all squads and platoon HQ"""
+        for unit in self.child_units:
+            unit.update(dt)
+
+        # Update platoon center as average of all unit positions
         if self.child_units:
-            positions = [squad.center for squad in self.child_units]
+            positions = [unit.center for unit in self.child_units]
             self.center = np.mean(positions, axis=0)
 
     def draw(self, surface, camera=None):
-        """Draw all squads and platoon indicator if selected"""
-        for squad in self.child_units:
-            squad.draw(surface, camera)
+        """Draw all squads, platoon HQ, and platoon indicator if selected"""
+        for unit in self.child_units:
+            unit.draw(surface, camera)
 
         # Draw platoon boundary if selected or parent is selected
         if self.selected or (self.parent_selected and self.sub_unit_index >= 0):
-            # Get all soldier positions from all squads in this platoon
+            # Get all soldier positions from all squads and HQ in this platoon
             all_soldier_positions = []
-            for squad in self.child_units:
-                all_soldier_positions.extend(squad.infantry.soldiers)
+            for unit in self.child_units:
+                if hasattr(unit, 'infantry') and hasattr(unit.infantry, 'soldiers'):
+                    all_soldier_positions.extend(unit.infantry.soldiers)
+                elif hasattr(unit, 'child_units'):  # In case of nested units
+                    for child in unit.child_units:
+                        if hasattr(child, 'infantry'):
+                            all_soldier_positions.extend(child.infantry.soldiers)
 
             if all_soldier_positions and camera:
                 # Transform all soldier positions to screen coordinates
@@ -274,19 +369,22 @@ class Platoon(MilitaryUnit):
         # Calculate offset from current center to target
         offset = np.array([x, y]) - self.center
 
-        # Move each squad by the same offset
-        for squad in self.child_units:
-            new_pos = squad.center + offset
-            squad.infantry.move_to(new_pos[0], new_pos[1])
+        # Move each unit (squads + HQ) by the same offset
+        for unit in self.child_units:
+            new_pos = unit.center + offset
+            if hasattr(unit, 'infantry'):
+                unit.infantry.move_to(new_pos[0], new_pos[1])
+            else:
+                unit.move_to(new_pos[0], new_pos[1])
 
     def contains_point(self, x, y):
-        """Check if point is within any squad"""
-        return any(squad.contains_point(x, y) for squad in self.child_units)
+        """Check if point is within any squad or platoon HQ"""
+        return any(unit.contains_point(x, y) for unit in self.child_units)
 
     def set_gradient(self, gx, gy):
-        """Set terrain gradient for all squads"""
-        for squad in self.child_units:
-            squad.set_gradient(gx, gy)
+        """Set terrain gradient for all squads and platoon HQ"""
+        for unit in self.child_units:
+            unit.set_gradient(gx, gy)
 
 
 class Company(MilitaryUnit):
