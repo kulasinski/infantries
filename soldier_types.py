@@ -25,11 +25,6 @@ SOLDIER_TYPES = {
         'name': 'Mortar',
         'symbol': 'mortar_dot',
         'color': (255, 100, 100),  # Light red for indirect fire
-    },
-    'radio': {
-        'name': 'Radio Operator',
-        'symbol': 'radio',
-        'color': (100, 255, 100),  # Green for communications
     }
 }
 
@@ -108,7 +103,7 @@ def get_platoon_hq_composition():
     return [
         'hq',     # Platoon leader (Lieutenant)
         'hq',     # Platoon sergeant
-        'radio',  # Radio operator
+        'hq',     # Additional HQ staff
         'mortar', # Mortar team leader
         'rifleman', # Mortar assistant
     ]
@@ -140,8 +135,8 @@ def assign_soldier_types(unit_type, total_soldiers):
                 types.append('hq')  # First soldier is always HQ
             elif i % 6 == 0:  # Every 6th soldier is MG
                 types.append('mg')
-            elif i % 10 == 0:  # Every 10th soldier is radio
-                types.append('radio')
+            elif i % 12 == 0:  # Every 12th soldier is mortar
+                types.append('mortar')
             else:
                 types.append('rifleman')
         return types
@@ -153,7 +148,7 @@ def get_unit_legend():
     for type_key, config in SOLDIER_TYPES.items():
         symbol_desc = {
             'rifle': '|',
-            'radio': '~',
+            'radio': '~',  # HQ still uses radio symbol
             'mg_cross': '+',
             'mortar_dot': '●',
         }.get(config['symbol'], '○')

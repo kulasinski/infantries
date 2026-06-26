@@ -15,6 +15,33 @@ class Camera:
         self.offset_x = SCREEN_WIDTH/2 - initial_center_x * self.zoom
         self.offset_y = SCREEN_HEIGHT/2 - initial_center_y * self.zoom
 
+        # Panning state
+        self.is_panning = False
+        self.pan_start_x = 0
+        self.pan_start_y = 0
+        self.pan_start_offset_x = 0
+        self.pan_start_offset_y = 0
+
+    def start_pan(self, mouse_x, mouse_y):
+        """Start panning operation"""
+        self.is_panning = True
+        self.pan_start_x = mouse_x
+        self.pan_start_y = mouse_y
+        self.pan_start_offset_x = self.offset_x
+        self.pan_start_offset_y = self.offset_y
+
+    def update_pan(self, mouse_x, mouse_y):
+        """Update camera position during panning"""
+        if self.is_panning:
+            dx = mouse_x - self.pan_start_x
+            dy = mouse_y - self.pan_start_y
+            self.offset_x = self.pan_start_offset_x + dx
+            self.offset_y = self.pan_start_offset_y + dy
+
+    def stop_pan(self):
+        """Stop panning operation"""
+        self.is_panning = False
+
     def handle_zoom(self, mouse_x, mouse_y, zoom_in):
         """Handle mouse wheel zoom, zooming toward mouse position"""
         old_zoom = self.zoom

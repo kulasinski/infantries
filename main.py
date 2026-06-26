@@ -55,6 +55,16 @@ def main():
                     pygame.K_4: 3,  # Regiment (when implemented)
                 }
 
+                # Zoom controls
+                if event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS:
+                    # Zoom in (+ or = key)
+                    mx, my = pygame.mouse.get_pos()
+                    camera.handle_zoom(mx, my, True)
+                elif event.key == pygame.K_MINUS:
+                    # Zoom out (- key)
+                    mx, my = pygame.mouse.get_pos()
+                    camera.handle_zoom(mx, my, False)
+
                 if event.key in level_keys:
                     target_index = level_keys[event.key]
                     if target_index < len(command_context.controllable_units):
@@ -87,7 +97,7 @@ def main():
                             selected_unit = None
 
             if event.type == pygame.MOUSEWHEEL:
-                # Handle zoom with mouse wheel
+                # Handle zoom with mouse wheel (standard RTS behavior)
                 mx, my = pygame.mouse.get_pos()
                 zoom_in = event.y > 0  # Scroll up = zoom in
                 camera.handle_zoom(mx, my, zoom_in)
@@ -95,7 +105,10 @@ def main():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = event.pos
 
-                if event.button == 1:  # left click — select
+                if event.button == 2:  # middle mouse button — start panning
+                    camera.start_pan(mx, my)
+
+                elif event.button == 1:  # left click — select
                     selected_unit = None
 
                     # Clear all selections first
@@ -116,9 +129,19 @@ def main():
                                 selected_unit = platoon
                                 break
 
-                if event.button == 3 and selected_unit:  # right click — move
+                elif event.button == 3 and selected_unit:  # right click — move
                     world_mx, world_my = camera.screen_to_world(mx, my)
                     selected_unit.move_to(world_mx, world_my)
+
+            if event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 2:  # middle mouse button release — stop panning
+                    camera.stop_pan()
+
+            if event.type == pygame.MOUSEMOTION:
+                # Update camera panning if middle mouse is held
+                if camera.is_panning:
+                    mx, my = event.pos
+                    camera.update_pan(mx, my)
 
         company.update(dt)
 
@@ -147,6 +170,7 @@ def main():
             "Left-click: select unit",
             "Right-click: move selected unit",
             "Mouse wheel: zoom in/out",
+            "Middle mouse drag: pan camera",
             "1: Platoon level, 2: Company level",
             "ESC: quit",
         ]
