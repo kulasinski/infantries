@@ -5,6 +5,7 @@ from terrain import generate_heightmap, render_terrain, compute_gradient
 from infantry import Infantry
 from units import Company, CommandContext
 from camera import Camera
+from scale_bar import draw_scale_bar
 
 
 def main():
@@ -22,6 +23,8 @@ def main():
 
     # Create a single company with hierarchical structure
     company = Company(center_x=600, center_y=400, unit_id="Alpha_Company")
+    company.unit_name = "Alpha Company"
+    company.unit_number = 1
     company.set_gradient(gx, gy)
 
     # Command context for switching between levels
@@ -221,6 +224,9 @@ def main():
                 speed_surf = font.render(f"Formation Speed: {pct}%", True, (255, 220, 80))
                 speed_y = context_y + 32  # Account for zoom text
                 screen.blit(speed_surf, (10, speed_y))
+
+        # Draw scale bar in upper right corner
+        draw_scale_bar(screen, camera, font)
 
         pygame.display.flip()
 

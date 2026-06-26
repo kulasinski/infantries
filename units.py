@@ -35,6 +35,10 @@ class MilitaryUnit:
         self.sub_unit_index = -1  # Index for color when parent is selected
         self.controllable = True  # Will be set based on HQ availability
 
+        # Unit naming
+        self.unit_name = ""  # Will be set during scenario generation
+        self.unit_number = 0  # Numeric identifier within type
+
         # Load unit configuration
         self.config = load_unit_config()
         self.unit_info = self.config["units"][unit_type]
@@ -73,6 +77,16 @@ class MilitaryUnit:
         self.sub_unit_index = -1
         for child in self.child_units:
             child.clear_all_selections()
+
+    def get_display_name(self):
+        """Get formatted display name with parent context"""
+        if not self.unit_name:
+            return f"{self.unit_type.title()} {self.unit_number}"
+
+        if self.parent_unit and hasattr(self.parent_unit, 'unit_name') and self.parent_unit.unit_name:
+            return f"{self.unit_name} ({self.parent_unit.unit_name})"
+        else:
+            return self.unit_name
 
 
 class Squad(MilitaryUnit):
@@ -155,9 +169,9 @@ class Platoon(MilitaryUnit):
         super().__init__("platoon", center_x, center_y, unit_id)
 
         # Create 3 squads in proper line formation
-        # Each squad is 5x2 soldiers: width=(5-1)*9=36px, height=(2-1)*9=9px
-        squad_width = 36
-        squad_spacing = squad_width + 15  # Squad width + 15px gap = 51px
+        # Each squad is 5x2 soldiers: width=(5-1)*3=12px, height=(2-1)*3=3px (updated for new spacing)
+        squad_width = 12
+        squad_spacing = squad_width + 8  # Squad width + 8px gap = 20px
         positions = [
             (center_x - squad_spacing, center_y),     # Left squad
             (center_x, center_y),                     # Center squad (HQ)
@@ -168,6 +182,8 @@ class Platoon(MilitaryUnit):
             squad_id = f"{self.unit_id}_squad_{i+1}"
             squad = Squad(sx, sy, squad_id)
             squad.parent_unit = self
+            squad.unit_number = i + 1
+            squad.unit_name = f"Squad {i + 1}"
             self.child_units.append(squad)
             self.visual_units.append(squad)
 
@@ -230,6 +246,26 @@ class Platoon(MilitaryUnit):
                            (int(min_x), int(min_y),
                             int(max_x - min_x), int(max_y - min_y)), thickness)
 
+            # Draw unit name above rectangle if selected
+            if self.selected:
+                display_name = self.get_display_name()
+                if display_name:
+                    # Create a simple font (we'll improve this)
+                    font = pygame.font.SysFont("monospace", 12)
+                    name_surf = font.render(display_name, True, (255, 255, 255))
+                    name_rect = name_surf.get_rect()
+
+                    # Position above the rectangle, centered
+                    name_x = (min_x + max_x) // 2 - name_rect.width // 2
+                    name_y = min_y - 18
+
+                    # Draw background for better visibility
+                    bg_rect = pygame.Rect(name_x - 2, name_y - 2, name_rect.width + 4, name_rect.height + 4)
+                    pygame.draw.rect(surface, (0, 0, 0, 180), bg_rect)
+                    pygame.draw.rect(surface, (255, 255, 255), bg_rect, 1)
+
+                    surface.blit(name_surf, (name_x, name_y))
+
     def move_to(self, x, y):
         """Move entire platoon, maintaining formation"""
         if not self.controllable:
@@ -260,10 +296,10 @@ class Company(MilitaryUnit):
         super().__init__("company", center_x, center_y, unit_id)
 
         # Create 3 platoons in proper triangular formation
-        # Each platoon spans 3 squads: width = 2*51 + 36 = 138px
-        platoon_width = 138
-        platoon_spacing = platoon_width + 20  # Platoon width + 20px gap = 158px
-        vertical_offset = 60  # Vertical spacing for triangle
+        # Each platoon spans 3 squads: width = 2*20 + 12 = 52px (updated for new spacing)
+        platoon_width = 52
+        platoon_spacing = platoon_width + 15  # Platoon width + 15px gap = 67px
+        vertical_offset = 40  # Vertical spacing for triangle
 
         positions = [
             (center_x, center_y - vertical_offset),           # Front platoon
@@ -275,6 +311,8 @@ class Company(MilitaryUnit):
             platoon_id = f"{self.unit_id}_platoon_{i+1}"
             platoon = Platoon(px, py, platoon_id)
             platoon.parent_unit = self
+            platoon.unit_number = i + 1
+            platoon.unit_name = f"Platoon {i + 1}"
             self.child_units.append(platoon)
             self.visual_units.append(platoon)
 
@@ -328,6 +366,24 @@ class Company(MilitaryUnit):
             pygame.draw.rect(surface, (255, 100, 100),
                            (int(min_x), int(min_y),
                             int(max_x - min_x), int(max_y - min_y)), 3)
+
+            # Draw company name above rectangle
+            display_name = self.get_display_name()
+            if display_name:
+                font = pygame.font.SysFont("monospace", 12)
+                name_surf = font.render(display_name, True, (255, 255, 255))
+                name_rect = name_surf.get_rect()
+
+                # Position above the rectangle, centered
+                name_x = (min_x + max_x) // 2 - name_rect.width // 2
+                name_y = min_y - 18
+
+                # Draw background for better visibility
+                bg_rect = pygame.Rect(name_x - 2, name_y - 2, name_rect.width + 4, name_rect.height + 4)
+                pygame.draw.rect(surface, (0, 0, 0, 180), bg_rect)
+                pygame.draw.rect(surface, (255, 255, 255), bg_rect, 1)
+
+                surface.blit(name_surf, (name_x, name_y))
 
     def move_to(self, x, y):
         """Move entire company, maintaining formation"""
