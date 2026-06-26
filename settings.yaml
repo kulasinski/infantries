@@ -102,6 +102,39 @@ game_tiers:
 organization_principle: "triangular"
 description: "Each level contains three units of the level below (3 squads -> platoon, 3 platoons -> company, etc.)"
 
+# Formation Configurations
+formations:
+  squad:
+    marching:
+      name: "Squad Marching Formation"
+      description: "Two-rank formation for movement"
+      pattern:
+        - ["rifleman", "rifleman", "mg", "rifleman", "rifleman"]
+        - ["rifleman", "rifleman", "hq", "rifleman", "rifleman"]
+      spacing:
+        x: 3.0  # meters between soldiers horizontally
+        y: 3.0  # meters between ranks vertically
+      dimensions:
+        cols: 5
+        rows: 2
+
+  platoon:
+    marching:
+      name: "Platoon Column Formation"
+      description: "Three squads in column with HQ element"
+      squad_spacing:
+        x: 20.0  # meters between squads horizontally
+        y: 0.0   # squads aligned horizontally
+      hq_position: "center_rear"  # where platoon HQ is positioned relative to squads
+
+  company:
+    marching:
+      name: "Company Column Formation"
+      description: "Three platoons in triangular formation"
+      platoon_spacing:
+        front_to_rear: 40.0  # meters from front platoon to rear platoons
+        rear_separation: 67.0  # meters between rear platoons
+
 # Gameplay Mechanics
 autonomous_behavior:
   description: "Units without HQ move independently through terrain but cannot receive player orders"

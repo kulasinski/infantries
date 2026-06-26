@@ -6,16 +6,15 @@ from settings import (
     SLOPE_PENALTY, MIN_SPEED_FRAC,
 )
 from terrain import directional_slope
-from soldier_types import draw_soldier_symbol, assign_soldier_types
+from soldier_types import draw_soldier_symbol, assign_soldier_types, get_formation_layout, get_formation_composition
 
 
 class Infantry:
     """A unit of soldiers that moves and forms up as a group."""
 
-    def __init__(self, center_x, center_y, cols=5, rows=3, unit_type='squad'):
-        self.cols = cols
-        self.rows = rows
+    def __init__(self, center_x, center_y, cols=5, rows=3, unit_type='squad', formation_name='marching'):
         self.unit_type = unit_type
+        self.formation_name = formation_name
         self.center = np.array([center_x, center_y], dtype=float)
         self.target = None          # destination center
         self.facing = 0.0           # radians, 0 = right
@@ -25,11 +24,16 @@ class Infantry:
         self._gx = None  # gradient arrays injected after terrain is ready
         self._gy = None
 
+        # Get formation configuration from YAML
+        self.formation_layout = get_formation_layout(unit_type, formation_name)
+        self.cols = self.formation_layout['dimensions']['cols']
+        self.rows = self.formation_layout['dimensions']['rows']
+        self.spacing = self.formation_layout['spacing']
+
         self.soldiers = self._build_formation(self.center)
 
-        # Assign soldier types based on unit composition
-        total_soldiers = len(self.soldiers)
-        self.soldier_types = assign_soldier_types(unit_type, total_soldiers)
+        # Assign soldier types based on formation pattern
+        self.soldier_types = get_formation_composition(unit_type, formation_name)
 
     def set_gradient(self, gx, gy):
         self._gx, self._gy = gx, gy
@@ -39,14 +43,23 @@ class Infantry:
     # ------------------------------------------------------------------
 
     def _build_formation(self, center):
+        """Build formation based on YAML configuration pattern"""
         soldiers = []
-        offset_x = (self.cols - 1) * SOLDIER_SPACING / 2
-        offset_y = (self.rows - 1) * SOLDIER_SPACING / 2
-        for row in range(self.rows):
-            for col in range(self.cols):
-                x = center[0] + col * SOLDIER_SPACING - offset_x
-                y = center[1] + row * SOLDIER_SPACING - offset_y
+        pattern = self.formation_layout['pattern']
+        spacing_x = self.spacing['x']
+        spacing_y = self.spacing['y']
+
+        # Calculate offsets to center the formation
+        offset_x = (self.cols - 1) * spacing_x / 2
+        offset_y = (self.rows - 1) * spacing_y / 2
+
+        # Build positions row by row according to pattern
+        for row_idx, row_pattern in enumerate(pattern):
+            for col_idx, soldier_type in enumerate(row_pattern):
+                x = center[0] + col_idx * spacing_x - offset_x
+                y = center[1] + row_idx * spacing_y - offset_y
                 soldiers.append(np.array([x, y], dtype=float))
+
         return soldiers
 
     # ------------------------------------------------------------------
@@ -144,7 +157,8 @@ class Infantry:
     # ------------------------------------------------------------------
 
     def contains_point(self, x, y):
-        half_w = (self.cols * SOLDIER_SPACING) / 2 + 6
-        half_h = (self.rows * SOLDIER_SPACING) / 2 + 6
+        # Use actual formation spacing from configuration
+        half_w = (self.cols * self.spacing['x']) / 2 + 6
+        half_h = (self.rows * self.spacing['y']) / 2 + 6
         return (abs(x - self.center[0]) < half_w and
                 abs(y - self.center[1]) < half_h)

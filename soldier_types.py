@@ -29,13 +29,9 @@ SOLDIER_TYPES = {
 }
 
 def draw_soldier_symbol(surface, x, y, soldier_type, radius=3, camera=None):
-    """Draw a soldier symbol at the given position"""
+    """Draw a soldier symbol at the given position using black letters"""
     if soldier_type not in SOLDIER_TYPES:
         soldier_type = 'rifleman'
-
-    config = SOLDIER_TYPES[soldier_type]
-    symbol = config['symbol']
-    color = config['color']
 
     # Apply camera transformation if provided
     if camera:
@@ -45,41 +41,34 @@ def draw_soldier_symbol(surface, x, y, soldier_type, radius=3, camera=None):
     # Convert to integer coordinates
     x, y = int(x), int(y)
 
-    if symbol == 'rifle':
-        # Draw a small vertical line for rifle (scale with zoom)
-        line_width = max(1, radius // 2)
-        pygame.draw.line(surface, color, (x, y-radius), (x, y+radius), line_width)
-        # Add small dot for soldier
-        dot_radius = max(1, radius // 2)
-        pygame.draw.circle(surface, color, (x, y), dot_radius)
+    # Get the letter for this soldier type
+    letter_map = {
+        'rifleman': 'R',
+        'hq': 'HQ',
+        'mg': 'MG',
+        'mortar': 'M'
+    }
 
-    elif symbol == 'radio':
-        # Draw wavy lines for radio waves (scale with zoom)
-        line_size = max(2, radius)
-        line_width = max(1, radius // 3)
-        pygame.draw.line(surface, color, (x-line_size, y-line_size), (x+line_size, y+line_size), line_width)
-        pygame.draw.line(surface, color, (x-line_size, y+line_size), (x+line_size, y-line_size), line_width)
-        # Center dot
-        dot_radius = max(1, radius // 2)
-        pygame.draw.circle(surface, color, (x, y), dot_radius)
+    letter = letter_map.get(soldier_type, 'R')
 
-    elif symbol == 'mg_cross':
-        # Draw cross for machine gun (scale with zoom)
-        cross_size = max(2, radius)
-        line_width = max(1, radius // 2)
-        pygame.draw.line(surface, color, (x-cross_size, y), (x+cross_size, y), line_width)
-        pygame.draw.line(surface, color, (x, y-cross_size), (x, y+cross_size), line_width)
-
-    elif symbol == 'mortar_dot':
-        # Draw larger dot for mortar
-        pygame.draw.circle(surface, color, (x, y), radius)
-        # Add small inner dot
-        inner_radius = max(1, radius // 2)
-        pygame.draw.circle(surface, (255, 255, 255), (x, y), inner_radius)
-
+    # Choose font size based on zoom/radius
+    if radius >= 6:
+        font_size = 12
+    elif radius >= 4:
+        font_size = 10
     else:
-        # Fallback: regular circle
-        pygame.draw.circle(surface, color, (x, y), radius)
+        font_size = 8
+
+    # Create font and render text in black
+    font = pygame.font.Font(None, font_size)
+    text_surface = font.render(letter, True, (0, 0, 0))  # Black text
+    text_rect = text_surface.get_rect()
+
+    # Center the text on the position
+    text_rect.center = (x, y)
+
+    # Draw the letter directly without background
+    surface.blit(text_surface, text_rect)
 
 
 def get_squad_composition():
@@ -96,6 +85,75 @@ def get_squad_composition():
         'rifleman',  # Rifleman 7
         'rifleman',  # Rifleman 8
     ]
+
+
+def get_formation_composition(unit_type, formation_name="marching"):
+    """
+    Get soldier composition based on formation configuration from YAML.
+    Returns flattened list of soldier types in formation order.
+    """
+    import yaml
+
+    try:
+        with open("settings.yaml", "r") as f:
+            config = yaml.safe_load(f)
+    except FileNotFoundError:
+        # Fallback to default if YAML not found
+        return get_squad_composition()
+
+    formations = config.get("formations", {})
+    unit_formations = formations.get(unit_type, {})
+    formation = unit_formations.get(formation_name, {})
+    pattern = formation.get("pattern", [])
+
+    if not pattern:
+        # Fallback to original composition
+        return get_squad_composition()
+
+    # Flatten the 2D pattern into a 1D list
+    composition = []
+    for row in pattern:
+        composition.extend(row)
+
+    return composition
+
+
+def get_formation_layout(unit_type, formation_name="marching"):
+    """
+    Get formation layout information from YAML configuration.
+    Returns dict with pattern, spacing, and dimensions.
+    """
+    import yaml
+
+    try:
+        with open("settings.yaml", "r") as f:
+            config = yaml.safe_load(f)
+    except FileNotFoundError:
+        # Fallback defaults
+        return {
+            "pattern": [["rifleman", "rifleman", "mg", "rifleman", "rifleman"],
+                       ["rifleman", "rifleman", "hq", "rifleman", "rifleman"]],
+            "spacing": {"x": 3.0, "y": 3.0},
+            "dimensions": {"cols": 5, "rows": 2}
+        }
+
+    formations = config.get("formations", {})
+    unit_formations = formations.get(unit_type, {})
+    formation = unit_formations.get(formation_name, {})
+
+    # Provide defaults if missing
+    default_layout = {
+        "pattern": [["rifleman", "rifleman", "mg", "rifleman", "rifleman"],
+                   ["rifleman", "rifleman", "hq", "rifleman", "rifleman"]],
+        "spacing": {"x": 3.0, "y": 3.0},
+        "dimensions": {"cols": 5, "rows": 2}
+    }
+
+    return {
+        "pattern": formation.get("pattern", default_layout["pattern"]),
+        "spacing": formation.get("spacing", default_layout["spacing"]),
+        "dimensions": formation.get("dimensions", default_layout["dimensions"])
+    }
 
 
 def get_platoon_hq_composition():
@@ -145,14 +203,15 @@ def assign_soldier_types(unit_type, total_soldiers):
 def get_unit_legend():
     """Return legend information for UI display"""
     legend = []
-    for type_key, config in SOLDIER_TYPES.items():
-        symbol_desc = {
-            'rifle': '|',
-            'radio': '~',  # HQ still uses radio symbol
-            'mg_cross': '+',
-            'mortar_dot': '●',
-        }.get(config['symbol'], '○')
+    letter_map = {
+        'rifleman': 'R',
+        'hq': 'HQ',
+        'mg': 'MG',
+        'mortar': 'M'
+    }
 
-        legend.append(f"{symbol_desc} {config['name']}")
+    for type_key, config in SOLDIER_TYPES.items():
+        letter = letter_map.get(type_key, 'R')
+        legend.append(f"{letter} {config['name']}")
 
     return legend

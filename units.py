@@ -96,8 +96,8 @@ class Squad(MilitaryUnit):
         super().__init__("squad", center_x, center_y, unit_id)
 
         # Create Infantry visual representation
-        # Squad is 2x5 formation (10 soldiers) with proper composition
-        self.infantry = Infantry(center_x, center_y, cols=5, rows=2, unit_type='squad')
+        # Use YAML-configured formation for squad marching formation
+        self.infantry = Infantry(center_x, center_y, unit_type='squad', formation_name='marching')
         self.visual_units = [self.infantry]
 
     def update(self, dt):
@@ -169,9 +169,9 @@ class Platoon(MilitaryUnit):
         super().__init__("platoon", center_x, center_y, unit_id)
 
         # Create 3 squads in proper line formation
-        # Each squad is 5x2 soldiers: width=(5-1)*3=12px, height=(2-1)*3=3px (updated for new spacing)
+        # Each squad width = (cols-1) * x_spacing = (5-1) * 3 = 12m
         squad_width = 12
-        squad_spacing = squad_width + 8  # Squad width + 8px gap = 20px
+        squad_spacing = squad_width + 8  # Squad width + 8m gap = 20m
         positions = [
             (center_x - squad_spacing, center_y),     # Left squad
             (center_x, center_y),                     # Center squad (HQ)
