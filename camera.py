@@ -42,6 +42,61 @@ class Camera:
         """Stop panning operation"""
         self.is_panning = False
 
+    def focus_on_unit(self, unit, screen_width, screen_height):
+        """Center camera on unit and zoom so its longest dimension fills 50% of screen"""
+        # Get all soldier positions from the unit
+        all_positions = []
+        self._collect_soldier_positions(unit, all_positions)
+
+        if not all_positions:
+            return
+
+        # Find bounding box of all soldiers
+        xs = [pos[0] for pos in all_positions]
+        ys = [pos[1] for pos in all_positions]
+
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+
+        # Calculate unit dimensions
+        unit_width = max_x - min_x
+        unit_height = max_y - min_y
+
+        # Add some padding to the unit dimensions
+        padding = max(unit_width, unit_height) * 0.2  # 20% padding
+        unit_width += padding
+        unit_height += padding
+
+        # Calculate center of unit
+        center_x = (min_x + max_x) / 2
+        center_y = (min_y + max_y) / 2
+
+        # Calculate required zoom to fit longest dimension in 50% of screen
+        target_screen_width = screen_width * 0.5
+        target_screen_height = screen_height * 0.5
+
+        zoom_for_width = target_screen_width / unit_width if unit_width > 0 else self.zoom
+        zoom_for_height = target_screen_height / unit_height if unit_height > 0 else self.zoom
+
+        # Use the smaller zoom to ensure both dimensions fit
+        target_zoom = min(zoom_for_width, zoom_for_height)
+        target_zoom = max(MIN_ZOOM, target_zoom)  # Respect minimum zoom
+
+        # Set new zoom and center on unit
+        self.zoom = target_zoom
+        self.offset_x = screen_width/2 - center_x * self.zoom
+        self.offset_y = screen_height/2 - center_y * self.zoom
+
+    def _collect_soldier_positions(self, unit, positions):
+        """Recursively collect all soldier positions from a unit"""
+        if hasattr(unit, 'infantry') and hasattr(unit.infantry, 'soldiers'):
+            # This is a squad with soldiers
+            positions.extend(unit.infantry.soldiers)
+        elif hasattr(unit, 'child_units'):
+            # This is a higher-level unit with child units
+            for child in unit.child_units:
+                self._collect_soldier_positions(child, positions)
+
     def handle_zoom(self, mouse_x, mouse_y, zoom_in):
         """Handle mouse wheel zoom, zooming toward mouse position"""
         old_zoom = self.zoom

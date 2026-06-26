@@ -68,6 +68,10 @@ def main():
                     mx, my = pygame.mouse.get_pos()
                     camera.handle_zoom(mx, my, False)
 
+                elif event.key == pygame.K_c and selected_unit:
+                    # Center and zoom on selected unit
+                    camera.focus_on_unit(selected_unit, SCREEN_WIDTH, SCREEN_HEIGHT)
+
                 if event.key in level_keys:
                     target_index = level_keys[event.key]
                     if target_index < len(command_context.controllable_units):
@@ -174,6 +178,7 @@ def main():
             "Right-click: move selected unit",
             "Mouse wheel: zoom in/out",
             "Middle mouse drag: pan camera",
+            "C: center on selected unit",
             "1: Platoon level, 2: Company level",
             "ESC: quit",
         ]
