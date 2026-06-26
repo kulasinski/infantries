@@ -136,6 +136,35 @@ class Squad(MilitaryUnit):
             # Restore original color
             SOLDIER_TYPES[soldier_type]['color'] = original_color
 
+        # Draw unit name above if parent is selected
+        if self.parent_selected and self.sub_unit_index >= 0 and camera:
+            # Get bounding box of all soldiers
+            if hasattr(self.infantry, 'soldiers') and self.infantry.soldiers:
+                screen_positions = [camera.world_to_screen(pos[0], pos[1]) for pos in self.infantry.soldiers]
+                screen_xs = [pos[0] for pos in screen_positions]
+                screen_ys = [pos[1] for pos in screen_positions]
+
+                min_x = min(screen_xs) - 10
+                max_x = max(screen_xs) + 10
+                min_y = min(screen_ys) - 10
+
+                display_name = self.get_display_name()
+                if display_name:
+                    font = pygame.font.SysFont("monospace", 12)
+                    name_surf = font.render(display_name, True, (255, 255, 255))
+                    name_rect = name_surf.get_rect()
+
+                    # Position above the unit, centered
+                    name_x = (min_x + max_x) // 2 - name_rect.width // 2
+                    name_y = min_y - 18
+
+                    # Draw background for better visibility
+                    bg_rect = pygame.Rect(name_x - 2, name_y - 2, name_rect.width + 4, name_rect.height + 4)
+                    pygame.draw.rect(surface, (0, 0, 0, 180), bg_rect)
+                    pygame.draw.rect(surface, (255, 255, 255), bg_rect, 1)
+
+                    surface.blit(name_surf, (name_x, name_y))
+
         # Draw movement target if exists
         if self.infantry.target is not None:
             if camera:
@@ -201,6 +230,35 @@ class PlatoonHQ(MilitaryUnit):
 
             # For HQ element, we'll just draw in black as specified
             draw_soldier_symbol(surface, pos[0], pos[1], soldier_type, SOLDIER_RADIUS, camera)
+
+        # Draw unit name above if parent is selected
+        if self.parent_selected and self.sub_unit_index >= 0 and camera:
+            # Get bounding box of all soldiers
+            if hasattr(self.infantry, 'soldiers') and self.infantry.soldiers:
+                screen_positions = [camera.world_to_screen(pos[0], pos[1]) for pos in self.infantry.soldiers]
+                screen_xs = [pos[0] for pos in screen_positions]
+                screen_ys = [pos[1] for pos in screen_positions]
+
+                min_x = min(screen_xs) - 10
+                max_x = max(screen_xs) + 10
+                min_y = min(screen_ys) - 10
+
+                display_name = self.get_display_name()
+                if display_name:
+                    font = pygame.font.SysFont("monospace", 12)
+                    name_surf = font.render(display_name, True, (255, 255, 255))
+                    name_rect = name_surf.get_rect()
+
+                    # Position above the unit, centered
+                    name_x = (min_x + max_x) // 2 - name_rect.width // 2
+                    name_y = min_y - 18
+
+                    # Draw background for better visibility
+                    bg_rect = pygame.Rect(name_x - 2, name_y - 2, name_rect.width + 4, name_rect.height + 4)
+                    pygame.draw.rect(surface, (0, 0, 0, 180), bg_rect)
+                    pygame.draw.rect(surface, (255, 255, 255), bg_rect, 1)
+
+                    surface.blit(name_surf, (name_x, name_y))
 
     def move_to(self, x, y):
         """HQ element can move if controllable"""
@@ -341,8 +399,8 @@ class Platoon(MilitaryUnit):
                            (int(min_x), int(min_y),
                             int(max_x - min_x), int(max_y - min_y)), thickness)
 
-            # Draw unit name above rectangle if selected
-            if self.selected:
+            # Draw unit name above rectangle if selected OR if parent is selected
+            if self.selected or (self.parent_selected and self.sub_unit_index >= 0):
                 display_name = self.get_display_name()
                 if display_name:
                     # Create a simple font (we'll improve this)
@@ -411,6 +469,35 @@ class CompanyHQ(MilitaryUnit):
         else:
             self.infantry.draw(surface, camera)
 
+        # Draw unit name above if parent is selected
+        if self.parent_selected and self.sub_unit_index >= 0 and camera:
+            # Get bounding box of all soldiers
+            if hasattr(self.infantry, 'soldiers') and self.infantry.soldiers:
+                screen_positions = [camera.world_to_screen(pos[0], pos[1]) for pos in self.infantry.soldiers]
+                screen_xs = [pos[0] for pos in screen_positions]
+                screen_ys = [pos[1] for pos in screen_positions]
+
+                min_x = min(screen_xs) - 10
+                max_x = max(screen_xs) + 10
+                min_y = min(screen_ys) - 10
+
+                display_name = self.get_display_name()
+                if display_name:
+                    font = pygame.font.SysFont("monospace", 12)
+                    name_surf = font.render(display_name, True, (255, 255, 255))
+                    name_rect = name_surf.get_rect()
+
+                    # Position above the unit, centered
+                    name_x = (min_x + max_x) // 2 - name_rect.width // 2
+                    name_y = min_y - 18
+
+                    # Draw background for better visibility
+                    bg_rect = pygame.Rect(name_x - 2, name_y - 2, name_rect.width + 4, name_rect.height + 4)
+                    pygame.draw.rect(surface, (0, 0, 0, 180), bg_rect)
+                    pygame.draw.rect(surface, (255, 255, 255), bg_rect, 1)
+
+                    surface.blit(name_surf, (name_x, name_y))
+
     def _draw_infantry_with_color(self, surface, color, camera=None):
         from settings import SOLDIER_RADIUS
         from soldier_types import draw_soldier_symbol
@@ -462,6 +549,35 @@ class HeavyWeaponsSection(MilitaryUnit):
             self._draw_infantry_with_color(surface, color, camera)
         else:
             self.infantry.draw(surface, camera)
+
+        # Draw unit name above if parent is selected
+        if self.parent_selected and self.sub_unit_index >= 0 and camera:
+            # Get bounding box of all soldiers
+            if hasattr(self.infantry, 'soldiers') and self.infantry.soldiers:
+                screen_positions = [camera.world_to_screen(pos[0], pos[1]) for pos in self.infantry.soldiers]
+                screen_xs = [pos[0] for pos in screen_positions]
+                screen_ys = [pos[1] for pos in screen_positions]
+
+                min_x = min(screen_xs) - 10
+                max_x = max(screen_xs) + 10
+                min_y = min(screen_ys) - 10
+
+                display_name = self.get_display_name()
+                if display_name:
+                    font = pygame.font.SysFont("monospace", 12)
+                    name_surf = font.render(display_name, True, (255, 255, 255))
+                    name_rect = name_surf.get_rect()
+
+                    # Position above the unit, centered
+                    name_x = (min_x + max_x) // 2 - name_rect.width // 2
+                    name_y = min_y - 18
+
+                    # Draw background for better visibility
+                    bg_rect = pygame.Rect(name_x - 2, name_y - 2, name_rect.width + 4, name_rect.height + 4)
+                    pygame.draw.rect(surface, (0, 0, 0, 180), bg_rect)
+                    pygame.draw.rect(surface, (255, 255, 255), bg_rect, 1)
+
+                    surface.blit(name_surf, (name_x, name_y))
 
     def _draw_infantry_with_color(self, surface, color, camera=None):
         from settings import SOLDIER_RADIUS
