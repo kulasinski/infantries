@@ -1,0 +1,130 @@
+# Infantry Unit Structure Configuration
+# Based on WWII triangular division organization
+
+units:
+  # Basic tactical unit - smallest controllable formation
+  squad:
+    size: 10  # 8-12 men, using middle value
+    leadership: "Sergeant"
+    description: "Basic tactical unit built around central weapon system"
+    weapon_focus: "Light machine gun or semi-automatic rifles"
+
+  # Platoon level - three squads + HQ
+  platoon:
+    size: 35  # 30-40 men, using middle value
+    leadership: "Lieutenant"
+    description: "Three rifle squads plus small headquarters element"
+    composition:
+      squads: 3
+      headquarters: 1
+    special_equipment: ["light mortar", "heavy weapons team"]
+
+  # Company level - three platoons + heavy weapons
+  company:
+    size: 160  # 120-200 men, using middle value
+    leadership: "Captain"
+    description: "Three rifle platoons plus heavy weapons and HQ"
+    composition:
+      rifle_platoons: 3
+      heavy_weapons_platoon: 1
+      headquarters: 1
+    weapons: ["heavy machine guns", "mortars"]
+
+  # Battalion level - three companies + support
+  battalion:
+    size: 900  # 800-1000 men, using middle value
+    leadership: "Lieutenant Colonel"
+    description: "Three rifle companies plus heavy weapons and HQ/supply"
+    composition:
+      rifle_companies: 3
+      heavy_weapons_company: 1
+      headquarters_company: 1
+    staff: true  # Lowest level with dedicated staff
+
+  # Regiment/Brigade level - three battalions + support
+  regiment:
+    size: 2750  # 2500-3000 men, using middle value
+    leadership: "Colonel"
+    description: "Three infantry battalions with anti-tank and cannon support"
+    composition:
+      infantry_battalions: 3
+      anti_tank_company: 1
+      cannon_company: 1
+
+  # Division level - full independent operations capability
+  division:
+    size: 13500  # 12000-15000 men, using middle value
+    leadership: "Major General"
+    description: "Three infantry regiments with full combined arms support"
+    composition:
+      infantry_regiments: 3
+      artillery_battalions: 4  # 3 light howitzer + 1 medium howitzer
+      engineer_battalion: 1
+      reconnaissance_troop: 1
+      support_companies:
+        - "medical"
+        - "signals"
+        - "quartermaster"
+        - "ordnance"
+        - "military police"
+    independent_operations: true
+
+# Command and Control System
+command_structure:
+  # Units with HQ can be directly controlled by player
+  controllable_units:
+    - "platoon"    # Has small headquarters element
+    - "company"    # Has headquarters unit
+    - "battalion"  # Has headquarters/supply company
+    - "regiment"   # Has regimental headquarters
+    - "division"   # Has divisional headquarters
+
+  # Units without HQ move autonomously but cannot receive direct orders
+  autonomous_units:
+    - "squad"      # No HQ - follows platoon or moves independently
+
+  # Command hierarchy - who can give orders to whom
+  chain_of_command:
+    platoon: ["squad"]
+    company: ["platoon", "squad"]
+    battalion: ["company", "platoon", "squad"]
+    regiment: ["battalion", "company", "platoon", "squad"]
+    division: ["regiment", "battalion", "company", "platoon", "squad"]
+
+# Game progression tiers (from memory notes)
+game_tiers:
+  tactical_atom: "platoon"  # Smallest meaningful tactical unit for gameplay
+  nlp_command_level: "company"  # Natural language command interface target
+  strategic_planning: "regiment"  # High-level strategic decisions
+  campaign_operations: "division"  # Full independent campaign capability
+
+# Triangular organization principle
+organization_principle: "triangular"
+description: "Each level contains three units of the level below (3 squads -> platoon, 3 platoons -> company, etc.)"
+
+# Gameplay Mechanics
+autonomous_behavior:
+  description: "Units without HQ move independently through terrain but cannot receive player orders"
+  squad_behavior:
+    - "Follow nearest friendly platoon if available"
+    - "Seek cover when under fire"
+    - "Maintain formation cohesion"
+    - "React to immediate threats"
+    - "Move toward last known objective"
+
+  ai_decision_making:
+    - "Terrain navigation (avoid obstacles, use cover)"
+    - "Self-preservation (retreat when outnumbered)"
+    - "Local tactical decisions (flanking, suppression)"
+    - "Cannot receive strategic orders from player"
+
+# Historical context
+historical_basis: "WWII triangular division structure"
+notes:
+  - "Division was smallest formation capable of independent operations"
+  - "All major powers used variations of triangular structure"
+  - "Numbers varied by nation and war period"
+  - "US divisions were heavily motorized with strong artillery support"
+  - "German late-war divisions reduced to 6 battalions (Volksgrenadier model)"
+  - "Soviet rifle divisions were smaller (5000-8000) but massed in larger formations"
+  - "Squads operate autonomously when separated from command structure"

@@ -11,6 +11,15 @@ ISOHYPSE_COLOR = (35, 22, 8)
 INFANTRY_COLOR = (210, 55, 55)
 SELECTED_COLOR = (255, 210, 40)
 
+# Hierarchical selection colors for sub-units
+SUB_UNIT_COLORS = [
+    (255, 255, 100),  # Yellow - first sub-unit
+    (100, 150, 255),  # Blue - second sub-unit
+    (255, 100, 200),  # Pink - third sub-unit
+    (100, 255, 200),  # Teal - fourth sub-unit
+    (150, 50, 100),   # Maroon - fifth sub-unit
+]
+
 SOLDIER_SPACING = 9
 SOLDIER_RADIUS = 3
 MOVE_SPEED = 80       # pixels per second on flat ground
