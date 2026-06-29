@@ -223,6 +223,20 @@ formations:
             pattern: [["mortar", "rifleman", "mortar", "rifleman"], ["hq", "rifleman", "rifleman", "rifleman"]]
             position: {"x": 0, "y": 60}   # Rear area fires
 
+# Movement and Speed System
+movement:
+  base_speed: 2.2  # meters per second on flat ground (quick march pace)
+  slope_penalty: 150.0  # speed multiplier reduction per unit of uphill slope
+  min_speed_fraction: 0.2  # floor: unit never moves slower than 20% of base speed
+
+  # Heavy weapons movement penalties
+  # Unit moves at the speed of its slowest member (realistic military doctrine)
+  heavy_weapon_penalties:
+    rifleman: 1.0    # No penalty - baseline speed
+    hq: 1.0          # Officers/NCOs move at normal pace
+    mg: 0.75         # Machine gun teams 25% slower (heavy weapon + ammo)
+    mortar: 0.6      # Mortar teams 40% slower (heaviest weapon + rounds)
+
 # Gameplay Mechanics
 autonomous_behavior:
   description: "Units without HQ move independently through terrain but cannot receive player orders"

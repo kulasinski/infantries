@@ -96,23 +96,63 @@ class Infantry:
         self.soldiers = self._build_formation(self.center)
 
     def _effective_speed(self, direction):
-        """Unit speed = base speed penalised by the steepest uphill slope among all soldiers.
+        """Unit speed = base speed penalised by:
+        1. The steepest uphill slope among all soldiers
+        2. The slowest heavy weapon in the unit
 
-        Downhill is treated as flat (no speed bonus). Unit is only as fast as
-        its slowest man.
+        Unit is only as fast as its slowest man carrying the heaviest equipment.
         """
         if self._gx is None:
-            return MOVE_SPEED
+            base_speed = MOVE_SPEED
+        else:
+            # Calculate terrain penalty
+            dx, dy = float(direction[0]), float(direction[1])
+            worst_slope = 0.0
+            for pos in self.soldiers:
+                slope = directional_slope(self._gx, self._gy, pos[0], pos[1], dx, dy)
+                # Only uphill slope penalises; clamp downhill to 0
+                worst_slope = max(worst_slope, slope)
 
-        dx, dy = float(direction[0]), float(direction[1])
-        worst_slope = 0.0
-        for pos in self.soldiers:
-            slope = directional_slope(self._gx, self._gy, pos[0], pos[1], dx, dy)
-            # Only uphill slope penalises; clamp downhill to 0
-            worst_slope = max(worst_slope, slope)
+            terrain_fraction = max(MIN_SPEED_FRAC, 1.0 - SLOPE_PENALTY * worst_slope)
+            base_speed = MOVE_SPEED * terrain_fraction
 
-        fraction = max(MIN_SPEED_FRAC, 1.0 - SLOPE_PENALTY * worst_slope)
-        return MOVE_SPEED * fraction
+        # Load heavy weapon penalties from YAML
+        heavy_weapon_penalties = self._get_heavy_weapon_penalties()
+
+        # Find the heaviest weapon penalty in this unit
+        heaviest_penalty = 1.0  # Start with no penalty
+        for i, soldier_type in enumerate(self.soldier_types):
+            if soldier_type in heavy_weapon_penalties:
+                weapon_penalty = heavy_weapon_penalties[soldier_type]
+                heaviest_penalty = min(heaviest_penalty, weapon_penalty)
+
+        # Apply the heaviest weapon penalty
+        final_speed = base_speed * heaviest_penalty
+
+        # Ensure we don't go below minimum speed
+        return max(final_speed, MOVE_SPEED * MIN_SPEED_FRAC)
+
+    def _get_heavy_weapon_penalties(self):
+        """Load heavy weapon penalties from YAML configuration"""
+        import yaml
+
+        try:
+            with open("settings.yaml", "r") as f:
+                config = yaml.safe_load(f)
+            return config.get("movement", {}).get("heavy_weapon_penalties", {
+                'rifleman': 1.0,
+                'hq': 1.0,
+                'mg': 0.75,
+                'mortar': 0.6
+            })
+        except FileNotFoundError:
+            # Fallback defaults if YAML not found
+            return {
+                'rifleman': 1.0,
+                'hq': 1.0,
+                'mg': 0.75,
+                'mortar': 0.6
+            }
 
     # ------------------------------------------------------------------
     # Draw
